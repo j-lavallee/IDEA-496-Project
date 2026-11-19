@@ -98,6 +98,11 @@ namespace StarterAssets
         private int _animIDFreeFall;
         private int _animIDMotionSpeed;
 
+        // combat
+        private bool _isWeaponDrawn = false;
+        private int _animIDDrawWeapon;
+        private int _animIDSheatheWeapon;
+
 #if ENABLE_INPUT_SYSTEM
         private PlayerInput _playerInput;
 #endif
@@ -159,6 +164,22 @@ namespace StarterAssets
             JumpAndGravity();
             GroundedCheck();
             Move();
+
+            if (_input.drawWeapon)
+            {
+                _input.drawWeapon = false;
+
+                if (!_isWeaponDrawn)
+                {
+                    _animator.SetTrigger(_animIDDrawWeapon);
+                    _isWeaponDrawn = true;
+                }
+                else
+                {
+                    _animator.SetTrigger(_animIDSheatheWeapon);
+                    _isWeaponDrawn = false;
+                }
+            }
         }
 
         private void LateUpdate()
@@ -173,6 +194,8 @@ namespace StarterAssets
             _animIDJump = Animator.StringToHash("Jump");
             _animIDFreeFall = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
+            _animIDDrawWeapon = Animator.StringToHash("drawWeapon");
+            _animIDSheatheWeapon = Animator.StringToHash("sheathWeapon");
         }
 
         private void GroundedCheck()

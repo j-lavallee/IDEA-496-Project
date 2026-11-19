@@ -12,6 +12,8 @@ namespace StarterAssets
 		public Vector2 look;
 		public bool jump;
 		public bool sprint;
+		public bool drawWeapon;
+		public bool attack;
 
 		[Header("Movement Settings")]
 		public bool analogMovement;
@@ -44,6 +46,16 @@ namespace StarterAssets
 		public void OnSprint(InputValue value)
 		{
 			SprintInput(value.isPressed);
+		}
+
+		public void OnDrawWeapon(InputValue value)
+		{
+			drawWeapon = value.isPressed;
+		}
+
+		public void OnAttack(InputValue value)
+		{
+			attack = value.isPressed;
 		}
 #endif
 
