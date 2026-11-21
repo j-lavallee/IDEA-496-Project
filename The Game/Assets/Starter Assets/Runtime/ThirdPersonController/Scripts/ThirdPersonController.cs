@@ -75,6 +75,13 @@ namespace StarterAssets
         [Tooltip("For locking the camera position on all axis")]
         public bool LockCameraPosition = false;
 
+        [Header("Combat")]
+        [Tooltip("Total number of attacks in a combo")]
+        [SerializeField] private int maxComboSteps = 3;
+
+        [Tooltip("Which combo attack starts the combo loop")]
+        [SerializeField] private int comboLoopAttack = 2;
+
         // cinemachine
         private float _cinemachineTargetYaw;
         private float _cinemachineTargetPitch;
@@ -102,6 +109,12 @@ namespace StarterAssets
         private bool _isWeaponDrawn = false;
         private int _animIDDrawWeapon;
         private int _animIDSheatheWeapon;
+        private bool _isAttacking;
+        private float _attackTimePassed;
+        private float _currentClipLength;
+        private int _comboStep = 0;
+        private bool _attackQueued = false;
+
 
 #if ENABLE_INPUT_SYSTEM
         private PlayerInput _playerInput;
@@ -161,26 +174,113 @@ namespace StarterAssets
         {
             _hasAnimator = TryGetComponent(out _animator);
 
+            if (_input.drawWeapon)
+            {
+                _input.drawWeapon = false;
+                
+                bool isAnimatorTransitioning = _animator.IsInTransition(0) || _animator.IsInTransition(1);
+                AnimatorStateInfo combatLayerState = _animator.GetCurrentAnimatorStateInfo(0);
+                bool isSwappingWeapon = combatLayerState.IsName("draw1") ||
+                                        combatLayerState.IsName("draw2") ||
+                                        combatLayerState.IsName("sheath1") ||
+                                        combatLayerState.IsName("sheath2");
+
+                if (!isAnimatorTransitioning  && !isSwappingWeapon)
+                {
+                    _input.attack = false;
+                    _attackQueued = false;
+
+                    if (!_isWeaponDrawn)
+                    {
+                        _animator.SetTrigger(_animIDDrawWeapon);
+                        _isWeaponDrawn = true;
+
+                    }
+                    else
+                    {
+                        _animator.SetTrigger(_animIDSheatheWeapon);
+                        _isWeaponDrawn = false;
+                    }
+                }
+            }
+
+            if (_isAttacking)
+            {
+                HandleAttackState();
+                return;
+            }
+
+            if (_input.attack && _isWeaponDrawn && !_isAttacking)
+            {
+                _isAttacking = true;
+                _comboStep = 1;
+                _input.attack = false;
+                _animator.applyRootMotion = true;
+                _animator.SetBool("IsAttacking", true);
+                _animator.SetInteger("ComboStep", _comboStep);
+                _animator.SetTrigger("Attack");
+                return;
+            }
+
             JumpAndGravity();
             GroundedCheck();
             Move();
 
-            if (_input.drawWeapon)
+        }
+
+        private void HandleAttackState()
+        {
+            if (_input.attack)
             {
-                _input.drawWeapon = false;
-
-                if (!_isWeaponDrawn)
-                {
-                    _animator.SetTrigger(_animIDDrawWeapon);
-                    _isWeaponDrawn = true;
-
-                }
-                else
-                {
-                    _animator.SetTrigger(_animIDSheatheWeapon);
-                    _isWeaponDrawn = false;
-                }
+                _input.attack = false;
+                _attackQueued = true;
             }
+
+            AnimatorStateInfo stateInfo = _animator.GetCurrentAnimatorStateInfo(1);
+            
+            if (!_animator.IsInTransition(1))
+            {
+                if (stateInfo.normalizedTime >= 0.55f)
+                {
+                    if (_attackQueued)
+                    {
+                        AdvanceCombo();
+                        return;
+                    }
+                    if (stateInfo.normalizedTime >= 0.95f)
+                    {
+                        ExitCombo();
+                    }
+
+                }
+
+            }
+        }
+
+        private void AdvanceCombo()
+        {
+            if (_comboStep < maxComboSteps)
+            {
+                _comboStep++;
+            }
+            else
+            {
+                _comboStep = comboLoopAttack;
+            }
+
+            _attackQueued = false;
+            _animator.SetInteger("ComboStep", _comboStep);
+            _animator.SetTrigger("Attack");
+        }
+
+        private void ExitCombo()
+        {
+            _isAttacking = false;
+            _comboStep = 0;
+            _attackQueued = false;
+            _animator.applyRootMotion = false;
+            _animator.SetBool("IsAttacking", false);
+            _animator.SetInteger("ComboStep", 0);
         }
 
         private void LateUpdate()
