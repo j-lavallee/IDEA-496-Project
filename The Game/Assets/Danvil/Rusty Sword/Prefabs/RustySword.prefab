@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 1343977894071945848}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.956, z: 0}
+  m_LocalPosition: {x: 0, y: 0.158, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -45,7 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageDealer
   weaponLength: 0.75
-  weaponDamage: 1
+  weaponRadius: 0.075
+  weaponDamage: 20
   targetLayers:
     serializedVersion: 2
     m_Bits: 2048

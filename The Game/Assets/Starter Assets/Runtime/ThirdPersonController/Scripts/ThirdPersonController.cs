@@ -79,8 +79,14 @@ namespace StarterAssets
         [Tooltip("Total number of attacks in a combo")]
         [SerializeField] private int maxComboSteps = 3;
 
-        [Tooltip("Which combo attack starts the combo loop")]
-        [SerializeField] private int comboLoopAttack = 2;
+        [Tooltip("Recovery cooldown after finishing a combo")]
+        [SerializeField] private float comboCooldown = 0.5f;
+
+        [Tooltip("Earliest normalized time in an animation clip to buffer the next combo attack")]
+        [Range(0.1f, 0.9f)]
+        [SerializeField] private float comboWindow = 0.55f;
+
+        private float _comboCooldownTimer = 0f;
 
         // cinemachine
         private float _cinemachineTargetYaw;
@@ -174,6 +180,20 @@ namespace StarterAssets
         {
             _hasAnimator = TryGetComponent(out _animator);
 
+            if (_comboCooldownTimer > 0f)
+            {
+                _comboCooldownTimer -= Time.deltaTime;
+            }
+
+            if (_isAttacking)
+            {
+                HandleAttackState();
+                _input.drawWeapon = false;
+                JumpAndGravity();
+                GroundedCheck();
+                return;
+            }
+
             if (_input.drawWeapon)
             {
                 _input.drawWeapon = false;
@@ -204,21 +224,11 @@ namespace StarterAssets
                 }
             }
 
-            if (_isAttacking)
+            if (_input.attack && _isWeaponDrawn && !_isAttacking && _comboCooldownTimer <= 0f)
             {
-                HandleAttackState();
-                return;
-            }
-
-            if (_input.attack && _isWeaponDrawn && !_isAttacking)
-            {
-                _isAttacking = true;
-                _comboStep = 1;
-                _input.attack = false;
-                _animator.applyRootMotion = true;
-                _animator.SetBool("IsAttacking", true);
-                _animator.SetInteger("ComboStep", _comboStep);
-                _animator.SetTrigger("Attack");
+                StartComboStep(1);
+                JumpAndGravity();
+                GroundedCheck();
                 return;
             }
 
@@ -228,32 +238,51 @@ namespace StarterAssets
 
         }
 
+        private void StartComboStep(int step)
+        {
+            _isAttacking = true;
+            _comboStep = step;
+            _attackQueued = false;
+            _input.attack = false;
+            _animator.applyRootMotion = true;
+            _animator.SetBool("IsAttacking", true);
+            _animator.SetInteger("ComboStep", _comboStep);
+            _animator.SetTrigger("Attack");
+        }
+
         private void HandleAttackState()
         {
-            if (_input.attack)
-            {
-                _input.attack = false;
-                _attackQueued = true;
-            }
-
             AnimatorStateInfo stateInfo = _animator.GetCurrentAnimatorStateInfo(1);
+            bool inTransition = _animator.IsInTransition(1);
             
-            if (!_animator.IsInTransition(1))
+            if (!inTransition && _comboStep < maxComboSteps)
             {
-                if (stateInfo.normalizedTime >= 0.55f)
+                if (_input.attack)
                 {
-                    if (_attackQueued)
-                    {
-                        AdvanceCombo();
-                        return;
-                    }
-                    if (stateInfo.normalizedTime >= 0.95f)
-                    {
-                        ExitCombo();
-                    }
-
+                    _input.attack = false;
+                    _attackQueued = true;
                 }
 
+                if (_attackQueued && stateInfo.normalizedTime >= comboWindow)
+                {
+                    AdvanceCombo();
+                    return;
+                }
+            }
+            else if (_comboStep >= maxComboSteps)
+            {
+                _input.attack = false;
+                _attackQueued = false;
+            }
+            
+            if (!inTransition && stateInfo.normalizedTime >= 0.95f)
+            {
+                if (_comboStep >= maxComboSteps)
+                {
+                    _comboCooldownTimer = comboCooldown;
+                }
+
+                ExitCombo();
             }
         }
 
@@ -261,16 +290,8 @@ namespace StarterAssets
         {
             if (_comboStep < maxComboSteps)
             {
-                _comboStep++;
+                StartComboStep(_comboStep + 1);
             }
-            else
-            {
-                _comboStep = comboLoopAttack;
-            }
-
-            _attackQueued = false;
-            _animator.SetInteger("ComboStep", _comboStep);
-            _animator.SetTrigger("Attack");
         }
 
         private void ExitCombo()
@@ -278,6 +299,7 @@ namespace StarterAssets
             _isAttacking = false;
             _comboStep = 0;
             _attackQueued = false;
+            _input.attack = false;
             _animator.applyRootMotion = false;
             _animator.SetBool("IsAttacking", false);
             _animator.SetInteger("ComboStep", 0);

@@ -7,6 +7,7 @@ public class DamageDealer : MonoBehaviour
     List<GameObject> hasDealtDamage;
 
     [SerializeField] float weaponLength;
+    [SerializeField] float weaponRadius;
     [SerializeField] float weaponDamage;
     [SerializeField] LayerMask targetLayers;
 
@@ -22,13 +23,13 @@ public class DamageDealer : MonoBehaviour
     {
         if (canDealDamage)
         {
-            RaycastHit hit;
+            RaycastHit[] hits = Physics.SphereCastAll(transform.position, weaponRadius, transform.up, weaponLength, targetLayers);
 
-            if (Physics.Raycast(transform.position, -transform.up, out hit, weaponLength, targetLayers))
+            foreach (RaycastHit hit in hits) 
             {
-                if (!hasDealtDamage.Contains(hit.transform.gameObject))
+                if (hit.transform.TryGetComponent(out EnemyController enemy) && !hasDealtDamage.Contains(hit.transform.gameObject))
                 {
-                    print("damage");
+                    enemy.TakeDamage(weaponDamage);
                     hasDealtDamage.Add(hit.transform.gameObject);
                 }
             }
@@ -50,7 +51,12 @@ public class DamageDealer : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(transform.position, transform.position - transform.up * weaponLength);
+        Vector3 start = transform.position;
+        Vector3 end = start + transform.up * weaponLength;
+
+        Gizmos.DrawLine(start, end);
+        Gizmos.DrawWireSphere(start, weaponRadius);
+        Gizmos.DrawWireSphere(end, weaponRadius);
     }
 
 }
