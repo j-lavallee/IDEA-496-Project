@@ -403,7 +403,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -0}
-  m_LocalScale: {x: 2, y: 1, z: 2}
+  m_LocalScale: {x: 3, y: 1, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -630,9 +630,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68bb026fafb42b14791938953eaace77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineBasicMultiChannelPerlin
-  NoiseProfile: {fileID: 11400000, guid: 46965f9cbaf525742a6da4c2172a99cd, type: 2}
+  NoiseProfile: {fileID: 11400000, guid: 69ce8388f6785dd4c8c39915efece2f4, type: 2}
   PivotOffset: {x: 0, y: 0, z: 1}
-  AmplitudeGain: 0.5
+  AmplitudeGain: 0
   FrequencyGain: 0.3
   m_NoiseOffsets: {x: -451.37964, y: 684.7062, z: 648.0488}
 --- !u!1 &111440146783641882
@@ -2019,7 +2019,7 @@ Transform:
   m_GameObject: {fileID: 3432378035470281003}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0.09, y: -0, z: 1.48126}
+  m_LocalPosition: {x: 0.09, y: -0, z: 6.51}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4495,6 +4495,7 @@ GameObject:
   - component: {fileID: 5459974322818244014}
   - component: {fileID: 3228387114492353540}
   - component: {fileID: 82762476441163485}
+  - component: {fileID: 6628734662716751198}
   m_Layer: 0
   m_Name: PlayerFollowCamera
   m_TagString: Untagged
@@ -4502,6 +4503,18 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &6628734662716751198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6628734662716751197}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4947d00994c818c49a0ba55fea93bf09, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraShake
 --- !u!4 &6634658592492956544
 Transform:
   m_ObjectHideFlags: 0
@@ -5107,7 +5120,7 @@ Transform:
   m_GameObject: {fileID: 1739788495014771567}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.16, y: 0.95, z: -5.34}
+  m_LocalPosition: {x: 0.16, y: 0.95, z: -8.07}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -5445,10 +5458,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99c43fd694526ca4582665ca4f3fff43, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  health: 100
+  health: 1000
   attackCooldown: 3
   attackRange: 2
   aggroRange: 6
+  hitShake: {fileID: 11400000, guid: f31fab04aa74516479ec3e9b1b723824, type: 2}
 --- !u!195 &8217307744965929454
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -5812,6 +5826,17 @@ MonoBehaviour:
   maxComboSteps: 3
   comboCooldown: 0.5
   comboWindow: 0.6
+  softLockOnRange: 5
+  softLockOnAngle: 75
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 2048
+  requireLineOfSight: 1
+  obstacleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  softLockOnRotationSpeed: 15
+  trackTarget: 1
 --- !u!114 &8794556347478191750
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5962,6 +5987,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   health: 100
+  hitShake: {fileID: 11400000, guid: f31fab04aa74516479ec3e9b1b723824, type: 2}
+  deathShake: {fileID: 11400000, guid: dae4fb743358cad4f91042d17b463022, type: 2}
+  hasHyperArmor: 0
 --- !u!1 &8848487579930096583
 GameObject:
   m_ObjectHideFlags: 0

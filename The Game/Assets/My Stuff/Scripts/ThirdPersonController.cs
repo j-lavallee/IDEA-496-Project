@@ -86,7 +86,27 @@ namespace StarterAssets
         [Range(0.1f, 0.9f)]
         [SerializeField] private float comboWindow = 0.55f;
 
-        private float _comboCooldownTimer = 0f;
+        [Header("Soft Lock-On")]
+        [Tooltip("Max distance to search for a target")]
+        [SerializeField] private float softLockOnRange = 5f;
+
+        [Tooltip("Max angle from search direction to consider a target")]
+        [Range(15f, 180f)]
+        [SerializeField] private float softLockOnAngle = 75f;
+
+        [Tooltip("Layer mask containing target layers")]
+        [SerializeField] private LayerMask targetLayers;
+
+        [Tooltip("Optionally, prevent soft lock-on if there are obstacles between the player and the target")]
+        [SerializeField] private bool requireLineOfSight = false;
+        [SerializeField] private LayerMask obstacleLayers;
+
+        [Tooltip("How fast the player rotates towards the target during an attack")]
+        [SerializeField] private float softLockOnRotationSpeed = 15f;
+
+        [Tooltip("If set to true, continuously nudges rotation towards the target during an attack")]
+        [SerializeField] private bool trackTarget = true;
+
 
         // cinemachine
         private float _cinemachineTargetYaw;
@@ -116,10 +136,12 @@ namespace StarterAssets
         private int _animIDDrawWeapon;
         private int _animIDSheatheWeapon;
         private bool _isAttacking;
-        private float _attackTimePassed;
-        private float _currentClipLength;
         private int _comboStep = 0;
         private bool _attackQueued = false;
+        private float _comboCooldownTimer = 0f;
+        private Transform _softLockOnTarget;
+        private Collider[] _targetBuffer = new Collider[16];
+        private PlayerHealth _playerHealth;
 
 
 #if ENABLE_INPUT_SYSTEM
@@ -174,6 +196,8 @@ namespace StarterAssets
             // reset our timeouts on start
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
+
+            _playerHealth = GetComponent<PlayerHealth>();
         }
 
         private void Update()
@@ -199,25 +223,27 @@ namespace StarterAssets
                 _input.drawWeapon = false;
                 
                 bool isAnimatorTransitioning = _animator.IsInTransition(0) || _animator.IsInTransition(1);
-                AnimatorStateInfo combatLayerState = _animator.GetCurrentAnimatorStateInfo(0);
+                AnimatorStateInfo combatLayerState = _animator.GetCurrentAnimatorStateInfo(1);
                 bool isSwappingWeapon = combatLayerState.IsName("draw1") ||
                                         combatLayerState.IsName("draw2") ||
                                         combatLayerState.IsName("sheath1") ||
                                         combatLayerState.IsName("sheath2");
 
-                if (!isAnimatorTransitioning  && !isSwappingWeapon)
+                if (Grounded && !isAnimatorTransitioning  && !isSwappingWeapon)
                 {
                     _input.attack = false;
                     _attackQueued = false;
 
                     if (!_isWeaponDrawn)
                     {
+                        _animator.ResetTrigger(_animIDSheatheWeapon);
                         _animator.SetTrigger(_animIDDrawWeapon);
                         _isWeaponDrawn = true;
 
                     }
                     else
                     {
+                        _animator.ResetTrigger(_animIDSheatheWeapon);
                         _animator.SetTrigger(_animIDSheatheWeapon);
                         _isWeaponDrawn = false;
                     }
@@ -244,6 +270,14 @@ namespace StarterAssets
             _comboStep = step;
             _attackQueued = false;
             _input.attack = false;
+
+            if (_softLockOnTarget == null || Vector3.Distance(transform.position, _softLockOnTarget.position) > softLockOnRange * 1.25f)
+            {
+                _softLockOnTarget = FindSoftLockOnTarget();
+            }
+
+            FaceTarget(_softLockOnTarget, instant: true);
+
             _animator.applyRootMotion = true;
             _animator.SetBool("IsAttacking", true);
             _animator.SetInteger("ComboStep", _comboStep);
@@ -254,7 +288,12 @@ namespace StarterAssets
         {
             AnimatorStateInfo stateInfo = _animator.GetCurrentAnimatorStateInfo(1);
             bool inTransition = _animator.IsInTransition(1);
-            
+
+            if (trackTarget && _softLockOnTarget != null && stateInfo.normalizedTime < 0.75f)
+            {
+                FaceTarget(_softLockOnTarget, instant: false);
+            }
+
             if (!inTransition && _comboStep < maxComboSteps)
             {
                 if (_input.attack)
@@ -290,6 +329,7 @@ namespace StarterAssets
         {
             if (_comboStep < maxComboSteps)
             {
+                _softLockOnTarget = FindSoftLockOnTarget() ?? _softLockOnTarget;
                 StartComboStep(_comboStep + 1);
             }
         }
@@ -300,9 +340,129 @@ namespace StarterAssets
             _comboStep = 0;
             _attackQueued = false;
             _input.attack = false;
+            _softLockOnTarget = null;
             _animator.applyRootMotion = false;
             _animator.SetBool("IsAttacking", false);
             _animator.SetInteger("ComboStep", 0);
+            _playerHealth.EndHyperArmor();
+        }
+
+        private Transform FindSoftLockOnTarget()
+        {
+            int hitCount = Physics.OverlapSphereNonAlloc(transform.position, softLockOnRange, _targetBuffer, targetLayers, QueryTriggerInteraction.Ignore);
+
+            if (hitCount == 0)
+            {
+                return null;
+            }
+
+            Vector3 searchDirection;
+
+            if (_input.move.sqrMagnitude > _threshold && _mainCamera != null)
+            {
+                Vector3 inputDirection = new Vector3(_input.move.x, 0f, _input.move.y).normalized;
+                float yaw = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + _mainCamera.transform.eulerAngles.y;
+                searchDirection = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+            }
+            else if (_mainCamera  != null)
+            {
+                searchDirection = _mainCamera.transform.forward;
+                searchDirection.y = 0f;
+
+                if (searchDirection.sqrMagnitude < 0.0001f)
+                {
+                    searchDirection = transform.forward;
+                }
+                else
+                {
+                    searchDirection.Normalize();
+                }
+            }
+            else
+            {
+                searchDirection = transform.forward;
+            }
+
+            Transform bestTarget = null;
+            float bestScore = float.MaxValue;
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Transform candidate = _targetBuffer[i].transform;
+
+                if (candidate == transform || candidate.IsChildOf(transform))
+                {
+                    continue;
+                }
+
+                Vector3 toTarget = candidate.position - transform.position;
+                toTarget.y = 0f;
+                float distance = toTarget.magnitude;
+
+                if (distance <= 0.001f || distance > softLockOnRange)
+                {
+                    continue;
+                }
+
+                Vector3 directionToTarget = toTarget / distance;
+                float angle = Vector3.Angle(searchDirection, directionToTarget);
+
+                if (angle > softLockOnAngle)
+                {
+                    continue;
+                }
+
+                if (requireLineOfSight)
+                {
+                    Vector3 origin = transform.position + Vector3.up * 1.2f;
+                    Vector3 aimPoint = candidate.position + Vector3.up * 1.2f;
+                    Vector3 losDirection = aimPoint - origin;
+
+                    if (Physics.Raycast(origin, losDirection.normalized, losDirection.magnitude, obstacleLayers, QueryTriggerInteraction.Ignore))
+                    {
+                        continue;
+                    }
+                }
+
+                float normalizedDistance = distance / softLockOnRange;
+                float normalizedAngle = angle / softLockOnAngle;
+                float score = normalizedAngle * 0.7f + normalizedDistance * 0.3f;
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestTarget = candidate;
+                }
+            }
+
+            return bestTarget;
+        }
+
+        private void FaceTarget(Transform target, bool instant)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Vector3 direction = target.position - transform.position;
+            direction.y = 0f;
+
+            if (direction.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            Quaternion desiredRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+
+            if (instant)
+            {
+                transform.rotation = desiredRotation;
+            }
+            else
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, softLockOnRotationSpeed * Time.deltaTime);
+            }
         }
 
         private void LateUpdate()

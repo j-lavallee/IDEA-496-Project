@@ -2,9 +2,17 @@ using UnityEngine;
 
 public class PlayerHealth : MonoBehaviour
 {
+    [Header("Player Health Settings")]
     [SerializeField] float health = 100;
 
+    [Header("Camera Shake Profiles")]
+    [Tooltip("This profile is used for attacks")]
+    [SerializeField] private CameraShakeProfile hitShake;
+    [Tooltip("This profile is used on death")]
+    [SerializeField] private CameraShakeProfile deathShake;
+
     Animator animator;
+    public bool hasHyperArmor;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -15,10 +23,16 @@ public class PlayerHealth : MonoBehaviour
     public void TakeDamage(float damageAmount)
     {
         health -= damageAmount;
-        animator.SetTrigger("TakeDamage");
+
+        if (!hasHyperArmor)
+        {
+            animator.SetTrigger("TakeDamage");
+            CameraShake.Instance.ShakeCamera(hitShake);
+        }
 
         if (health <= 0 )
         {
+            CameraShake.Instance.ShakeCamera(deathShake);
             Die();
         }
     }
@@ -27,4 +41,15 @@ public class PlayerHealth : MonoBehaviour
     {
         Destroy(this.gameObject);
     }
+
+    public void StartHyperArmor()
+    {
+        hasHyperArmor = true;
+    }
+
+    public void EndHyperArmor()
+    {
+        hasHyperArmor = false;
+    }
+
 }

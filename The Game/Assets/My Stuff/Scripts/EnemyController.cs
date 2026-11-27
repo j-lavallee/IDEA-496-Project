@@ -9,6 +9,10 @@ public class EnemyController : MonoBehaviour
     [SerializeField] float attackRange = 1f;
     [SerializeField] float aggroRange = 100;
 
+    [Header("Camera Shake Profiles")]
+    [Tooltip("This profile is used for when the player is hit")]
+    [SerializeField] private CameraShakeProfile hitShake;
+
     GameObject player;
     NavMeshAgent agent;
     Animator animator;
@@ -52,6 +56,7 @@ public class EnemyController : MonoBehaviour
     {
         health -= damageAmount;
         animator.SetTrigger("TakeDamage");
+        CameraShake.Instance.ShakeCamera(hitShake);
 
         if (health <= 0)
         {
